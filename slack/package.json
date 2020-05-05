@@ -1,0 +1,14 @@
+{
+  "name": "gcb-notifications-slack",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "jrmerz@ucdavis.edu",
+  "license": "ISC",
+  "dependencies": {
+    "@slack/webhook": "^5.0.3"
+  }
+}
