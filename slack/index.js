@@ -12,7 +12,7 @@ module.exports.subscribeSlack = async (pubSubEvent, context) => {
   // Add additional statuses to list if you'd like:
   // QUEUED, WORKING, SUCCESS, FAILURE,
   // INTERNAL_ERROR, TIMEOUT, CANCELLED
-  const status = ['SUCCESS', 'FAILURE', 'INTERNAL_ERROR', 'TIMEOUT'];
+  const status = ['QUEUED', 'SUCCESS', 'FAILURE', 'INTERNAL_ERROR', 'TIMEOUT'];
   if (status.indexOf(build.status) === -1) {
     return;
   }
@@ -51,11 +51,9 @@ const createSlackMessage = (build) => {
   let substitutions = '';
   if( build.substitutions ) {
     substitutions = [];
-    let s = build.substitutions;
-    if( s.REPO_NAME ) substitutions.push('Repo: '+s.REPO_NAME);
-    if( s.BRANCH_NAME ) substitutions.push('Branch: '+s.BRANCH_NAME);
-    if( s.TAG_NAME ) substitutions.push('Tag: '+s.TAG_NAME);
-    if( s.SHORT_SHA ) substitutions.push('Sha: '+s.SHORT_SHA);
+    for( let key in build.substitutions ) {
+      substitutions.push(key+': '+build.substitutions[key]);
+    }
     substitutions = substitutions.join(', ');
   }
 
