@@ -12,7 +12,7 @@ module.exports.subscribeSlack = async (pubSubEvent, context) => {
   // Add additional statuses to list if you'd like:
   // QUEUED, WORKING, SUCCESS, FAILURE,
   // INTERNAL_ERROR, TIMEOUT, CANCELLED
-  const status = ['QUEUED', 'SUCCESS', 'FAILURE', 'INTERNAL_ERROR', 'TIMEOUT'];
+  const status = ['QUEUED', 'WORKING', 'SUCCESS', 'FAILURE', 'INTERNAL_ERROR', 'TIMEOUT'];
   if (status.indexOf(build.status) === -1) {
     return;
   }
@@ -49,27 +49,31 @@ const eventToBuild = async (data) => {
 // createSlackMessage creates a message from a build object.
 const createSlackMessage = (build) => {
   let substitutions = '';
+  let imagesText = '';
+
   if( build.substitutions ) {
     substitutions = [];
-    for( let key in build.substitutions ) {
-      substitutions.push(key+': '+build.substitutions[key]);
-    }
-    substitutions = substitutions.join(', ');
+
+    Object
+      .keys(build.substitutions)
+      .sort()
+      .forEach(key => substitutions.push(key+': '+build.substitutions[key]));
+    substitutions = substitutions.join('\n');
+  }
+
+  if( (build.artifacts || []).length || (build.images || []).length ) {
+    images = '\nImages: '+(build.artifacts || []).join(', ')+' '+(build.images || []).join(', ');;
   }
 
   const message = {
-    text: `Build \`${build.id}\`
-${substitutions}
-Images: ${(build.artifacts || build.images).join(', ')}`,
+    text: `Build \`${build.id}\` - ${build.status}
+${substitutions}${images}`,
     mrkdwn: true,
     attachments: [
       {
         title: 'Build logs',
         title_link: build.logUrl,
-        fields: [{
-          title: 'Status',
-          value: build.status
-        }]
+        fields: []
       }
     ]
   };
