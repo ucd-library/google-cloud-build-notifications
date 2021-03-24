@@ -1,5 +1,6 @@
 const { IncomingWebhook } = require('@slack/webhook');
 const { CloudBuildClient } = require('@google-cloud/cloudbuild');
+const { Storage } = require('@google-cloud/storage');
 
 const url = process.env.SLACK_WEBHOOK_URL;
 const webhook = new IncomingWebhook(url);
@@ -7,6 +8,7 @@ const webhook = new IncomingWebhook(url);
 // subscribeSlack is the main function called by Cloud Functions.
 module.exports.subscribeSlack = async (pubSubEvent, context) => {
   const build = await eventToBuild(pubSubEvent.data);
+  const metadata = await getBuildInformation(build);
 
   // Skip if the current status is not in the status list.
   // Add additional statuses to list if you'd like:
@@ -18,9 +20,30 @@ module.exports.subscribeSlack = async (pubSubEvent, context) => {
   }
 
   // Send message to Slack.
-  const message = createSlackMessage(build);
+  const message = createSlackMessage(build, metadata);
   webhook.send(message);
 };
+
+// see if there is build information stored in GCS
+const getBuildInformation = async (build) => {
+  try {
+    const storage = new Storage();
+    let sub = build.substitutions || {};
+
+    let file = storage.bucket(sub._CONFIG_BUCKET).file(`${sub._CONFIG_PROJECT}/${build.id}/config.json`);
+    
+    if( !(await file.exists())[0] ) {
+      console.log('no gcs build config data, ignoring');
+      return null; 
+    }
+    
+    let data = (await file.download())[0].toString('utf-8');
+    return JSON.parse(data);
+  } catch(e) {
+    console.error(`failed to download config  file gs://${sub._CONFIG_BUCKET}/${sub._CONFIG_PROJECT}/${build.id}/config.json`, e);
+  }
+  return null;
+}
 
 // eventToBuild transforms pubsub event message to a build object.
 // additionally we are going to lookup build data
@@ -47,11 +70,27 @@ const eventToBuild = async (data) => {
 }
 
 // createSlackMessage creates a message from a build object.
-const createSlackMessage = (build) => {
+const createSlackMessage = (build, metadata) => {
+  let title = '';
   let substitutions = '';
   let imagesText = '';
 
+  if( !build.substitutions ) {
+    build.substitutions = {};
+  }
+
+  if( metadata ) {
+    for( key in metadata ) {
+      let value = metadata[key];
+      build.substitutions[key] = Array.isArray(value) ? value.join(', ') : value
+    }
+  }
+
   if( build.substitutions ) {
+    if( build.substitutions.REPO_NAME ) {
+      title = `\`${build.substitutions.REPO_NAME}\`\n`;
+    }
+
     substitutions = [];
 
     Object
@@ -61,13 +100,17 @@ const createSlackMessage = (build) => {
     substitutions = substitutions.join('\n');
   }
 
-  if( (build.artifacts || []).length || (build.images || []).length ) {
-    images = '\nImages: '+(build.artifacts || []).join(', ')+' '+(build.images || []).join(', ');;
+  let images = new Set();
+  (build.artifacts || []).forEach(item => images.add(item));
+  (build.images || []).forEach(item => images.add(item));
+
+  if( images.size ) {
+    imagesText = '\nImages: '+([...images].join(', '));
   }
 
   const message = {
-    text: `Build \`${build.id}\` - ${build.status}
-${substitutions}${images}`,
+    text: `${title}Build ${build.id} - ${build.status}
+${substitutions}${imagesText}`,
     mrkdwn: true,
     attachments: [
       {
