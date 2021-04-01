@@ -106,6 +106,7 @@ const createSlackMessage = (build, metadata) => {
   if( metadata ) {
     for( key in metadata ) {
       let value = metadata[key];
+      if( !value ) continue;
       build.substitutions[key] = Array.isArray(value) ? value.join(', ') : value
     }
   }
