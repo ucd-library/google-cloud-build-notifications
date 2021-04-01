@@ -1,9 +1,13 @@
 const { IncomingWebhook } = require('@slack/webhook');
 const { CloudBuildClient } = require('@google-cloud/cloudbuild');
+const {SecretManagerServiceClient} = require('@google-cloud/secret-manager');
 const { Storage } = require('@google-cloud/storage');
+const fetch = require('node-fetch');
 
 const url = process.env.SLACK_WEBHOOK_URL;
 const webhook = new IncomingWebhook(url);
+const secretClient = new SecretManagerServiceClient();
+const SECRET_NAME = 'github-os-ci-bot-api-token';
 
 // subscribeSlack is the main function called by Cloud Functions.
 module.exports.subscribeSlack = async (pubSubEvent, context) => {
@@ -21,15 +25,28 @@ module.exports.subscribeSlack = async (pubSubEvent, context) => {
 
   // Send message to Slack.
   const message = createSlackMessage(build, metadata);
-  webhook.send(message);
+  await webhook.send(message);
+
+  if( build.substitutions._GITHUB_EVENT === 'pull_request' && metadata && metadata.APP_VERSION ) {
+    let githubSecret = await loadLatestSecret(SECRET_NAME);
+    await fetch(`https://api.github.com/repos/${build.substitutions._GITHUB_REPOSITORY}/issues/${build.substitutions._GITHUB_ISSUE_NUMBER}/comments`,{
+      method: 'POST',
+      headers : {
+        'Accept' : 'application/vnd.github.v3+json',
+        'Authorization': `token ${githubSecret}`
+      },
+      body : JSON.stringify({
+        body : 'deployed at `'+metadata.APP_VERSION+'`'
+      })
+    })
+  }
 };
 
 // see if there is build information stored in GCS
 const getBuildInformation = async (build) => {
+  let sub = build.substitutions || {};
   try {
     const storage = new Storage();
-    let sub = build.substitutions || {};
-
     let file = storage.bucket(sub._CONFIG_BUCKET).file(`${sub._CONFIG_PROJECT}/${build.id}/config.json`);
     
     if( !(await file.exists())[0] ) {
@@ -67,6 +84,13 @@ const eventToBuild = async (data) => {
   }
 
   return resp;
+}
+
+async function loadLatestSecret(name) {
+  let resp = await secretClient.accessSecretVersion({
+    name: `projects/digital-ucdavis-edu/secrets/${name}/versions/latest`
+  });
+  return resp[0].payload.data.toString('utf-8');
 }
 
 // createSlackMessage creates a message from a build object.
