@@ -9,10 +9,10 @@
   "author": "jrmerz@ucdavis.edu",
   "license": "ISC",
   "dependencies": {
-    "@google-cloud/cloudbuild": "^1.5.0",
-    "@google-cloud/secret-manager": "^3.5.0",
-    "@google-cloud/storage": "^5.8.2",
-    "@slack/webhook": "^5.0.3",
-    "node-fetch": "^2.6.1"
+    "@google-cloud/cloudbuild": "^4.0.1",
+    "@google-cloud/secret-manager": "^5.0.1",
+    "@google-cloud/storage": "^7.1.0",
+    "@slack/webhook": "^6.1.0",
+    "node-fetch": "^2.7.0"
   }
 }

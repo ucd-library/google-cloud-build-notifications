@@ -69,7 +69,7 @@ const eventToBuild = async (data) => {
 
   const cb = new CloudBuildClient();
   let build = await cb.getBuild({
-    id : evt.id,
+    name : evt.name,
     projectId : 'digital-ucdavis-edu'
   });
 

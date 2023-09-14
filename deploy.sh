@@ -9,6 +9,6 @@ SLACK_WEBHOOK_URL=$(gcloud secrets versions access latest --secret=${SECRET})
 
 gcloud functions deploy subscribeSlack \
   --trigger-topic cloud-builds \
-  --runtime nodejs12 \
+  --runtime nodejs18 \
   --set-env-vars "SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}"  \
   --service-account=$SERVICE_ACCOUNT_NAME
